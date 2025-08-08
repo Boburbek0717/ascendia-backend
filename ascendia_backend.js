@@ -6,6 +6,8 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,7 +25,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false }
 }));
-
+app.use('/uploads', express.static('uploads'));
 // Helper: require login
 function requireLogin(req, res, next) {
   if (!req.session.userId) {
@@ -87,7 +89,31 @@ app.get('/essays', (req, res) => {
   // In production, restrict to instructors
   res.json(essays);
 });
+const uploadedEssays = [];
+app.post('/upload-essay', upload.single('essay'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
+  const essayInfo = {
+    email: req.body.email,
+    originalName: req.file.originalname,
+    storedName: req.file.filename,
+    url: `/uploads/${req.file.filename}`,
+    timestamp: new Date()
+  };
+
+  uploadedEssays.push(essayInfo);
+
+  console.log('Essay uploaded:', essayInfo);
+  res.json({ message: 'Essay file uploaded successfully!' });
+});
+
+// Serve uploaded files publicly
+app.use('/uploads', express.static('uploads'));
+
+// GET uploaded file list
+app.get('/admin/files', (req, res) => {
+  res.json(uploadedEssays);
+});
 // Start server
 app.listen(PORT, () => {
   console.log(`Ascendia backend running on port ${PORT}`);
